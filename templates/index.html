@@ -113,6 +113,75 @@
         </div>
     </div>
 
+    <!-- Edit/Create Modal -->
+    <div id="editModal" class="modal">
+        <div class="modal-content modal-large">
+            <span class="close">&times;</span>
+            <h2 id="editModalTitle">Add Product</h2>
+            <form id="productForm">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Data ID *</label>
+                        <input type="text" name="data_ID" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Short Description *</label>
+                        <input type="text" name="short_desc" required>
+                    </div>
+                    <div class="form-group full-width">
+                        <label>Long Description</label>
+                        <textarea name="long_desc" rows="3"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Vendor</label>
+                        <input type="text" name="vendor">
+                    </div>
+                    <div class="form-group">
+                        <label>Category (Datatype)</label>
+                        <input type="text" name="datatype">
+                    </div>
+                    <div class="form-group">
+                        <label>Status</label>
+                        <input type="text" name="status">
+                    </div>
+                    <div class="form-group">
+                        <label>Stage</label>
+                        <input type="text" name="stage">
+                    </div>
+                    <div class="form-group">
+                        <label>Region</label>
+                        <input type="text" name="region">
+                    </div>
+                    <div class="form-group">
+                        <label>Delivery Frequency</label>
+                        <input type="text" name="delivery_frequency">
+                    </div>
+                    <div class="form-group">
+                        <label>Delivery Method</label>
+                        <input type="text" name="delivery_method">
+                    </div>
+                    <div class="form-group">
+                        <label>Asset Class</label>
+                        <input type="text" name="asset_class">
+                    </div>
+                    <div class="form-group">
+                        <label>Annual Cost</label>
+                        <input type="text" name="annual_cost">
+                    </div>
+                    <div class="form-group full-width">
+                        <label>Notes</label>
+                        <textarea name="notes" rows="2"></textarea>
+                    </div>
+                </div>
+                <input type="hidden" name="id">
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="hideModal('editModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script src="/static/app.js"></script>
 </body>
 </html>

@@ -22,7 +22,9 @@ function updateAuthUI() {
     const authSection = document.getElementById('authSection');
     if (currentUser.authenticated) {
         const roleClass = currentUser.role === 'admin' ? 'admin' : '';
+        const addBtn = currentUser.role === 'admin' ? `<button id="addProductBtn" class="btn btn-secondary">+ Add Product</button>` : '';
         authSection.innerHTML = `
+            ${addBtn}
             <div class="user-info">
                 <span>${currentUser.username}</span>
                 <span class="role-badge ${roleClass}">${currentUser.role}</span>
@@ -30,6 +32,9 @@ function updateAuthUI() {
             <button id="logoutBtn" class="btn btn-secondary">Sign Out</button>
         `;
         document.getElementById('logoutBtn').addEventListener('click', logout);
+        if (currentUser.role === 'admin') {
+            document.getElementById('addProductBtn').addEventListener('click', () => openProductForm());
+        }
     } else {
         authSection.innerHTML = `<button id="loginBtn" class="btn btn-primary">Sign In</button>`;
         document.getElementById('loginBtn').addEventListener('click', () => showModal('loginModal'));
@@ -241,6 +246,12 @@ async function showProductDetail(id) {
             <div class="detail-main">
                 <h3>About this dataset</h3>
                 <p class="detail-desc">${product.long_desc || 'No description available.'}</p>
+                ${isAdmin ? `
+                <div class="admin-actions">
+                    <button class="btn btn-primary" onclick="openProductForm(${product.id})">Edit</button>
+                    <button class="btn btn-danger" onclick="deleteProduct(${product.id})">Delete</button>
+                </div>
+                ` : ''}
             </div>
             <div class="detail-sidebar">
                 <div class="detail-field">
@@ -287,4 +298,69 @@ function showModal(id) {
 function hideModal(id) {
     document.getElementById(id).classList.remove('active');
 }
+
+// CRUD Functions
+async function openProductForm(id = null) {
+    const form = document.getElementById('productForm');
+    form.reset();
+    
+    if (id) {
+        document.getElementById('editModalTitle').textContent = 'Edit Product';
+        const res = await fetch(`/api/products/${id}`);
+        const product = await res.json();
+        for (const [key, value] of Object.entries(product)) {
+            const input = form.elements[key];
+            if (input) input.value = value || '';
+        }
+    } else {
+        document.getElementById('editModalTitle').textContent = 'Add Product';
+    }
+    
+    showModal('editModal');
+}
+
+async function saveProduct(e) {
+    e.preventDefault();
+    const form = document.getElementById('productForm');
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData.entries());
+    const id = data.id;
+    delete data.id;
+    
+    const url = id ? `/api/products/${id}` : '/api/products';
+    const method = id ? 'PUT' : 'POST';
+    
+    const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    });
+    
+    if (res.ok) {
+        hideModal('editModal');
+        hideModal('detailModal');
+        await loadProducts();
+        await loadFilters();
+    } else {
+        const err = await res.json();
+        alert(err.error || 'Failed to save');
+    }
+}
+
+async function deleteProduct(id) {
+    if (!confirm('Are you sure you want to delete this product?')) return;
+    
+    const res = await fetch(`/api/products/${id}`, { method: 'DELETE' });
+    if (res.ok) {
+        hideModal('detailModal');
+        await loadProducts();
+        await loadFilters();
+    } else {
+        const err = await res.json();
+        alert(err.error || 'Failed to delete');
+    }
+}
+
+// Add form submit listener
+document.getElementById('productForm').addEventListener('submit', saveProduct);
 
