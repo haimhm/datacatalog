@@ -1,0 +1,113 @@
+from flask import Flask, render_template, request, jsonify, redirect, url_for
+from flask_login import LoginManager, login_user, logout_user, current_user, login_required
+from models import db, User, DataProduct
+from config import Config, SENSITIVE_COLUMNS
+
+app = Flask(__name__)
+app.config.from_object(Config)
+
+db.init_app(app)
+login_manager = LoginManager()
+login_manager.init_app(app)
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
+
+# Create tables and default users
+with app.app_context():
+    db.create_all()
+    if not User.query.filter_by(username='admin').first():
+        db.session.add(User(username='admin', password='admin', role='admin'))
+        db.session.add(User(username='user', password='user', role='standard'))
+        db.session.commit()
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/api/login', methods=['POST'])
+def login():
+    data = request.get_json()
+    user = User.query.filter_by(username=data.get('username')).first()
+    if user and user.password == data.get('password'):
+        login_user(user)
+        return jsonify({'success': True, 'role': user.role, 'username': user.username})
+    return jsonify({'success': False, 'error': 'Invalid credentials'}), 401
+
+@app.route('/api/logout', methods=['POST'])
+def logout():
+    logout_user()
+    return jsonify({'success': True})
+
+@app.route('/api/user')
+def get_user():
+    if current_user.is_authenticated:
+        return jsonify({'authenticated': True, 'username': current_user.username, 'role': current_user.role})
+    return jsonify({'authenticated': False, 'role': 'guest'})
+
+@app.route('/api/products')
+def get_products():
+    products = DataProduct.query.all()
+    is_admin = current_user.is_authenticated and current_user.role == 'admin'
+    return jsonify([p.to_dict(include_sensitive=is_admin) for p in products])
+
+@app.route('/api/products/<int:id>')
+def get_product(id):
+    product = DataProduct.query.get_or_404(id)
+    is_admin = current_user.is_authenticated and current_user.role == 'admin'
+    return jsonify(product.to_dict(include_sensitive=is_admin))
+
+@app.route('/api/products', methods=['POST'])
+@login_required
+def create_product():
+    if current_user.role != 'admin':
+        return jsonify({'error': 'Admin access required'}), 403
+    data = request.get_json()
+    product = DataProduct()
+    for key, value in data.items():
+        if hasattr(product, key):
+            setattr(product, key, value)
+    db.session.add(product)
+    db.session.commit()
+    return jsonify(product.to_dict(include_sensitive=True)), 201
+
+@app.route('/api/products/<int:id>', methods=['PUT'])
+@login_required
+def update_product(id):
+    if current_user.role != 'admin':
+        return jsonify({'error': 'Admin access required'}), 403
+    product = DataProduct.query.get_or_404(id)
+    data = request.get_json()
+    for key, value in data.items():
+        if hasattr(product, key) and key != 'id':
+            setattr(product, key, value)
+    db.session.commit()
+    return jsonify(product.to_dict(include_sensitive=True))
+
+@app.route('/api/products/<int:id>', methods=['DELETE'])
+@login_required
+def delete_product(id):
+    if current_user.role != 'admin':
+        return jsonify({'error': 'Admin access required'}), 403
+    product = DataProduct.query.get_or_404(id)
+    db.session.delete(product)
+    db.session.commit()
+    return jsonify({'success': True})
+
+@app.route('/api/filters')
+def get_filters():
+    """Get unique values for filter dropdowns"""
+    products = DataProduct.query.all()
+    filters = {
+        'categories': sorted(set(p.datatype for p in products if p.datatype)),
+        'vendors': sorted(set(p.vendor for p in products if p.vendor)),
+        'regions': sorted(set(p.region for p in products if p.region)),
+        'statuses': sorted(set(p.status for p in products if p.status)),
+        'stages': sorted(set(p.stage for p in products if p.stage)),
+    }
+    return jsonify(filters)
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000, debug=True)
+

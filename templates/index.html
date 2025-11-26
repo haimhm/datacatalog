@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Catalog</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M4 6h16M4 12h16M4 18h16"/>
+            </svg>
+            <span>Data Catalog</span>
+        </div>
+        <div class="nav-search">
+            <input type="text" id="searchInput" placeholder="Search for datasets, vendors or sectors...">
+        </div>
+        <div class="nav-auth" id="authSection">
+            <button id="addProductBtn" class="btn btn-secondary" style="display:none;">+ Add Product</button>
+            <button id="loginBtn" class="btn btn-primary">Sign In</button>
+        </div>
+    </nav>
+
+    <div class="container">
+        <aside class="sidebar" id="sidebar">
+            <div class="filter-header">
+                <h3>Filter by</h3>
+                <button class="btn-clear" id="clearFilters">Clear</button>
+            </div>
+            
+            <div class="filter-section">
+                <h4>Category</h4>
+                <div id="categoryFilters" class="filter-list"></div>
+            </div>
+            
+            <div class="filter-section">
+                <h4>Status</h4>
+                <div id="statusFilters" class="filter-list"></div>
+            </div>
+            
+            <div class="filter-section">
+                <h4>Stage</h4>
+                <div id="stageFilters" class="filter-list"></div>
+            </div>
+            
+            <div class="filter-section">
+                <h4>Region</h4>
+                <div id="regionFilters" class="filter-list"></div>
+            </div>
+            
+            <div class="filter-section">
+                <h4>Vendor</h4>
+                <div id="vendorFilters" class="filter-list"></div>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <div class="stats-bar">
+                <div class="stat-card">
+                    <span class="stat-label">Data sets</span>
+                    <span class="stat-value" id="totalDatasets">0</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Vendors</span>
+                    <span class="stat-value" id="totalVendors">0</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Categories</span>
+                    <span class="stat-value" id="totalCategories">0</span>
+                </div>
+            </div>
+
+            <div class="results-header">
+                <span id="resultsCount">0 results</span>
+                <div class="view-toggle">
+                    <button class="view-btn active" data-view="list">☰ List</button>
+                    <button class="view-btn" data-view="grid">⊞ Grid</button>
+                </div>
+            </div>
+
+            <div id="productList" class="product-list"></div>
+        </main>
+    </div>
+
+    <!-- Login Modal -->
+    <div id="loginModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Sign In</h2>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" id="username" required>
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="password" required>
+                </div>
+                <div id="loginError" class="error-msg"></div>
+                <button type="submit" class="btn btn-primary btn-full">Sign In</button>
+            </form>
+            <p class="hint">Demo: admin/admin or user/user</p>
+        </div>
+    </div>
+
+    <!-- Detail Modal -->
+    <div id="detailModal" class="modal">
+        <div class="modal-content modal-large">
+            <span class="close">&times;</span>
+            <div id="detailContent"></div>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
+
