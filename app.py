@@ -18,8 +18,12 @@ def load_user(user_id):
 with app.app_context():
     db.create_all()
     if not User.query.filter_by(username='admin').first():
-        db.session.add(User(username='admin', password='admin', role='admin'))
-        db.session.add(User(username='user', password='user', role='standard'))
+        admin = User(username='admin', role='admin')
+        admin.set_password('admin')
+        user = User(username='user', role='standard')
+        user.set_password('user')
+        db.session.add(admin)
+        db.session.add(user)
         db.session.commit()
 
 @app.route('/')
@@ -30,7 +34,7 @@ def index():
 def login():
     data = request.get_json()
     user = User.query.filter_by(username=data.get('username')).first()
-    if user and user.password == data.get('password'):
+    if user and user.check_password(data.get('password')):
         login_user(user)
         return jsonify({'success': True, 'role': user.role, 'username': user.username})
     return jsonify({'success': False, 'error': 'Invalid credentials'}), 401
@@ -92,6 +96,40 @@ def delete_product(id):
         return jsonify({'error': 'Admin access required'}), 403
     product = DataProduct.query.get_or_404(id)
     db.session.delete(product)
+    db.session.commit()
+    return jsonify({'success': True})
+
+@app.route('/api/users')
+@login_required
+def get_users():
+    if current_user.role != 'admin':
+        return jsonify({'error': 'Admin access required'}), 403
+    users = User.query.all()
+    return jsonify([{'id': u.id, 'username': u.username, 'role': u.role} for u in users])
+
+@app.route('/api/users', methods=['POST'])
+@login_required
+def create_user():
+    if current_user.role != 'admin':
+        return jsonify({'error': 'Admin access required'}), 403
+    data = request.get_json()
+    if User.query.filter_by(username=data.get('username')).first():
+        return jsonify({'error': 'Username already exists'}), 400
+    user = User(username=data['username'], role=data.get('role', 'standard'))
+    user.set_password(data['password'])
+    db.session.add(user)
+    db.session.commit()
+    return jsonify({'id': user.id, 'username': user.username, 'role': user.role}), 201
+
+@app.route('/api/users/<int:id>', methods=['DELETE'])
+@login_required
+def delete_user(id):
+    if current_user.role != 'admin':
+        return jsonify({'error': 'Admin access required'}), 403
+    if id == current_user.id:
+        return jsonify({'error': 'Cannot delete yourself'}), 400
+    user = User.query.get_or_404(id)
+    db.session.delete(user)
     db.session.commit()
     return jsonify({'success': True})
 

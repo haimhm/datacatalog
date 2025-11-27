@@ -113,6 +113,27 @@
         </div>
     </div>
 
+    <!-- User Management Modal -->
+    <div id="usersModal" class="modal">
+        <div class="modal-content modal-large">
+            <span class="close">&times;</span>
+            <h2>User Management</h2>
+            <form id="createUserForm" class="inline-form">
+                <input type="text" id="newUsername" placeholder="Username" required>
+                <input type="password" id="newPassword" placeholder="Password" required>
+                <select id="newRole">
+                    <option value="standard">Standard</option>
+                    <option value="admin">Admin</option>
+                </select>
+                <button type="submit" class="btn btn-primary">Add User</button>
+            </form>
+            <table class="detail-table" id="usersTable">
+                <thead><tr><th>Username</th><th>Role</th><th>Actions</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+
     <!-- Edit/Create Modal -->
     <div id="editModal" class="modal">
         <div class="modal-content modal-large">

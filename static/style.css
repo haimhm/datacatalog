@@ -544,6 +544,68 @@ body {
     margin-top: 16px;
 }
 
+/* Inline form */
+.inline-form {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.inline-form input, .inline-form select {
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+.detail-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.detail-table th {
+    text-align: left;
+    padding: 10px 12px;
+    background: var(--bg);
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.detail-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+}
+
+.detail-table .field-name {
+    width: 180px;
+    font-weight: 500;
+    color: var(--text-muted);
+    text-transform: capitalize;
+    background: var(--bg);
+}
+
+.detail-desc-section {
+    margin: 20px 0;
+    padding: 16px;
+    background: var(--bg);
+    border-radius: 8px;
+}
+
+.detail-desc-section h3 {
+    font-size: 14px;
+    margin-bottom: 8px;
+}
+
+.detail-desc-section p {
+    color: var(--text-muted);
+    line-height: 1.6;
+}
+
+.btn-sm {
+    padding: 4px 8px;
+    font-size: 12px;
+}
+
 @media (max-width: 768px) {
     .container {
         flex-direction: column;

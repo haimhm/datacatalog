@@ -22,7 +22,7 @@ function updateAuthUI() {
     const authSection = document.getElementById('authSection');
     if (currentUser.authenticated) {
         const roleClass = currentUser.role === 'admin' ? 'admin' : '';
-        const addBtn = currentUser.role === 'admin' ? `<button id="addProductBtn" class="btn btn-secondary">+ Add Product</button>` : '';
+        const addBtn = currentUser.role === 'admin' ? `<button id="addProductBtn" class="btn btn-secondary">+ Add Dataset</button><button id="manageUsersBtn" class="btn btn-secondary">Users</button>` : '';
         authSection.innerHTML = `
             ${addBtn}
             <div class="user-info">
@@ -34,6 +34,7 @@ function updateAuthUI() {
         document.getElementById('logoutBtn').addEventListener('click', logout);
         if (currentUser.role === 'admin') {
             document.getElementById('addProductBtn').addEventListener('click', () => openProductForm());
+            document.getElementById('manageUsersBtn').addEventListener('click', () => openUsersModal());
         }
     } else {
         authSection.innerHTML = `<button id="loginBtn" class="btn btn-primary">Sign In</button>`;
@@ -235,57 +236,38 @@ async function showProductDetail(id) {
     
     const sensitiveFields = ['user', 'contract_start', 'contract_end', 'term', 'annual_cost', 'price_cap', 'use_permissions', 'notes'];
     const isAdmin = currentUser && currentUser.role === 'admin';
+    const skipFields = ['id', 'short_desc', 'long_desc', 'data_ID'];
+    
+    // Build table rows for all fields
+    const tableRows = Object.keys(product)
+        .filter(key => !skipFields.includes(key))
+        .map(field => {
+            const isSensitive = sensitiveFields.includes(field);
+            if (isSensitive && !isAdmin) return '';
+            const label = field.replace(/_/g, ' ');
+            const badge = isSensitive ? ' <span class="sensitive-badge">Admin</span>' : '';
+            return `<tr><td class="field-name">${label}${badge}</td><td>${product[field] || 'N/A'}</td></tr>`;
+        }).join('');
     
     const detailContent = document.getElementById('detailContent');
     detailContent.innerHTML = `
         <div class="detail-header">
             <div class="detail-title">${product.short_desc || product.data_ID}</div>
             <div class="detail-vendor">by ${product.vendor || 'Unknown'}</div>
-        </div>
-        <div class="detail-body">
-            <div class="detail-main">
-                <h3>About this dataset</h3>
-                <p class="detail-desc">${product.long_desc || 'No description available.'}</p>
-                ${isAdmin ? `
-                <div class="admin-actions">
-                    <button class="btn btn-primary" onclick="openProductForm(${product.id})">Edit</button>
-                    <button class="btn btn-danger" onclick="deleteProduct(${product.id})">Delete</button>
-                </div>
-                ` : ''}
+            ${isAdmin ? `
+            <div class="admin-actions">
+                <button class="btn btn-primary" onclick="openProductForm(${product.id})">Edit</button>
+                <button class="btn btn-danger" onclick="deleteProduct(${product.id})">Delete</button>
             </div>
-            <div class="detail-sidebar">
-                <div class="detail-field">
-                    <div class="detail-field-label">Category</div>
-                    <div class="detail-field-value">${product.datatype || 'N/A'}</div>
-                </div>
-                <div class="detail-field">
-                    <div class="detail-field-label">Region</div>
-                    <div class="detail-field-value">${product.region || 'N/A'}</div>
-                </div>
-                <div class="detail-field">
-                    <div class="detail-field-label">Status</div>
-                    <div class="detail-field-value">${product.status || 'N/A'}</div>
-                </div>
-                <div class="detail-field">
-                    <div class="detail-field-label">Stage</div>
-                    <div class="detail-field-value">${product.stage || 'N/A'}</div>
-                </div>
-                <div class="detail-field">
-                    <div class="detail-field-label">Delivery Frequency</div>
-                    <div class="detail-field-value">${product.delivery_frequency || 'N/A'}</div>
-                </div>
-                <div class="detail-field">
-                    <div class="detail-field-label">Delivery Method</div>
-                    <div class="detail-field-value">${product.delivery_method || 'N/A'}</div>
-                </div>
-                ${isAdmin ? sensitiveFields.map(field => `
-                    <div class="detail-field">
-                        <div class="detail-field-label">${field.replace(/_/g, ' ')}<span class="sensitive-badge">Admin Only</span></div>
-                        <div class="detail-field-value">${product[field] || 'N/A'}</div>
-                    </div>
-                `).join('') : ''}
-            </div>
+            ` : ''}
         </div>
+        <div class="detail-desc-section">
+            <h3>Description</h3>
+            <p>${product.long_desc || 'No description available.'}</p>
+        </div>
+        <table class="detail-table">
+            <tbody>${tableRows}</tbody>
+        </table>
     `;
     
     showModal('detailModal');
@@ -363,4 +345,54 @@ async function deleteProduct(id) {
 
 // Add form submit listener
 document.getElementById('productForm').addEventListener('submit', saveProduct);
+
+// User Management
+async function openUsersModal() {
+    await loadUsers();
+    showModal('usersModal');
+}
+
+async function loadUsers() {
+    const res = await fetch('/api/users');
+    const users = await res.json();
+    const tbody = document.querySelector('#usersTable tbody');
+    tbody.innerHTML = users.map(u => `
+        <tr>
+            <td>${u.username}</td>
+            <td><span class="role-badge ${u.role === 'admin' ? 'admin' : ''}">${u.role}</span></td>
+            <td><button class="btn btn-danger btn-sm" onclick="deleteUser(${u.id})">Delete</button></td>
+        </tr>
+    `).join('');
+}
+
+document.getElementById('createUserForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const res = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            username: document.getElementById('newUsername').value,
+            password: document.getElementById('newPassword').value,
+            role: document.getElementById('newRole').value
+        })
+    });
+    if (res.ok) {
+        document.getElementById('createUserForm').reset();
+        await loadUsers();
+    } else {
+        const err = await res.json();
+        alert(err.error);
+    }
+});
+
+async function deleteUser(id) {
+    if (!confirm('Delete this user?')) return;
+    const res = await fetch(`/api/users/${id}`, { method: 'DELETE' });
+    if (res.ok) {
+        await loadUsers();
+    } else {
+        const err = await res.json();
+        alert(err.error);
+    }
+}
 
