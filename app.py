@@ -2,6 +2,21 @@ from flask import Flask, render_template, request, jsonify, redirect, url_for
 from flask_login import LoginManager, login_user, logout_user, current_user, login_required
 from models import db, User, DataProduct
 from config import Config, SENSITIVE_COLUMNS
+from datetime import datetime
+
+DATE_FIELDS = ['prod_date', 'trial_date', 'created_date', 'end_date', 'pit_date', 
+               'history_start', 'contract_start', 'contract_end']
+
+def parse_value(key, value):
+    """Convert empty strings to None and date strings to date objects"""
+    if value == '' or value is None:
+        return None
+    if key in DATE_FIELDS:
+        try:
+            return datetime.strptime(value, '%Y-%m-%d').date()
+        except:
+            return None
+    return value
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -71,7 +86,7 @@ def create_product():
     product = DataProduct()
     for key, value in data.items():
         if hasattr(product, key):
-            setattr(product, key, value)
+            setattr(product, key, parse_value(key, value))
     db.session.add(product)
     db.session.commit()
     return jsonify(product.to_dict(include_sensitive=True)), 201
@@ -85,7 +100,7 @@ def update_product(id):
     data = request.get_json()
     for key, value in data.items():
         if hasattr(product, key) and key != 'id':
-            setattr(product, key, value)
+            setattr(product, key, parse_value(key, value))
     db.session.commit()
     return jsonify(product.to_dict(include_sensitive=True))
 
