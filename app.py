@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for
 from flask_login import LoginManager, login_user, logout_user, current_user, login_required
-from models import db, User, DataProduct
+from models import db, User, DataProduct, ColumnOption
 from config import Config, SENSITIVE_COLUMNS
 from datetime import datetime
 
@@ -146,6 +146,69 @@ def delete_user(id):
     user = User.query.get_or_404(id)
     db.session.delete(user)
     db.session.commit()
+    return jsonify({'success': True})
+
+@app.route('/api/column-options')
+def get_column_options():
+    """Get all column options grouped by column name"""
+    options = ColumnOption.query.all()
+    result = {}
+    for opt in options:
+        if opt.column_name not in result:
+            result[opt.column_name] = {
+                'values': [],
+                'is_multi_value': opt.is_multi_value
+            }
+        result[opt.column_name]['values'].append(opt.value)
+    # Sort values
+    for col in result:
+        result[col]['values'].sort()
+    return jsonify(result)
+
+@app.route('/api/column-options/all')
+def get_all_column_options():
+    """Get all column options with IDs"""
+    options = ColumnOption.query.all()
+    return jsonify([opt.to_dict() for opt in options])
+
+@app.route('/api/column-options', methods=['POST'])
+@login_required
+def create_column_option():
+    if current_user.role != 'admin':
+        return jsonify({'error': 'Admin access required'}), 403
+    data = request.get_json()
+    option = ColumnOption(
+        column_name=data['column_name'],
+        value=data['value'],
+        is_multi_value=data.get('is_multi_value', False)
+    )
+    db.session.add(option)
+    db.session.commit()
+    return jsonify(option.to_dict()), 201
+
+@app.route('/api/column-options/<int:id>', methods=['DELETE'])
+@login_required
+def delete_column_option(id):
+    if current_user.role != 'admin':
+        return jsonify({'error': 'Admin access required'}), 403
+    option = ColumnOption.query.get_or_404(id)
+    db.session.delete(option)
+    db.session.commit()
+    return jsonify({'success': True})
+
+@app.route('/api/column-options/delete', methods=['POST'])
+@login_required
+def delete_column_option_by_value():
+    if current_user.role != 'admin':
+        return jsonify({'error': 'Admin access required'}), 403
+    data = request.get_json()
+    option = ColumnOption.query.filter_by(
+        column_name=data['column_name'],
+        value=data['value']
+    ).first()
+    if option:
+        db.session.delete(option)
+        db.session.commit()
     return jsonify({'success': True})
 
 @app.route('/api/filters')

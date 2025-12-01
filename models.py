@@ -72,3 +72,19 @@ class DataProduct(db.Model):
                 result[column.name] = val
         return result
 
+class ColumnOption(db.Model):
+    __tablename__ = 'column_options'
+    id = db.Column(db.Integer, primary_key=True)
+    column_name = db.Column(db.String(100), nullable=False)
+    value = db.Column(db.String(500), nullable=False)
+    is_multi_value = db.Column(db.Boolean, default=False)
+    __table_args__ = (db.UniqueConstraint('column_name', 'value', name='_column_value_uc'),)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'column_name': self.column_name,
+            'value': self.value,
+            'is_multi_value': self.is_multi_value
+        }
+

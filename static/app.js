@@ -22,7 +22,7 @@ function updateAuthUI() {
     const authSection = document.getElementById('authSection');
     if (currentUser.authenticated) {
         const roleClass = currentUser.role === 'admin' ? 'admin' : '';
-        const addBtn = currentUser.role === 'admin' ? `<button id="addProductBtn" class="btn btn-secondary">+ Add Dataset</button><button id="manageUsersBtn" class="btn btn-secondary">Users</button>` : '';
+        const addBtn = currentUser.role === 'admin' ? `<button id="addProductBtn" class="btn btn-secondary">+ Add Dataset</button><button id="manageUsersBtn" class="btn btn-secondary">Users</button><button id="manageOptionsBtn" class="btn btn-secondary">Column Options</button>` : '';
         authSection.innerHTML = `
             ${addBtn}
             <div class="user-info">
@@ -35,6 +35,7 @@ function updateAuthUI() {
         if (currentUser.role === 'admin') {
             document.getElementById('addProductBtn').addEventListener('click', () => openProductForm());
             document.getElementById('manageUsersBtn').addEventListener('click', () => openUsersModal());
+            document.getElementById('manageOptionsBtn').addEventListener('click', () => openOptionsModal());
         }
     } else {
         authSection.innerHTML = `<button id="loginBtn" class="btn btn-primary">Sign In</button>`;
@@ -286,16 +287,115 @@ async function openProductForm(id = null) {
     const form = document.getElementById('productForm');
     form.reset();
     
+    // Remove ALL existing containers (both checkbox and tag) to prevent duplicates
+    form.querySelectorAll('.checkbox-container, .tag-select-container').forEach(container => container.remove());
+    
+    // Show all selects (they might be hidden for multi-value)
+    form.querySelectorAll('select').forEach(select => {
+        select.style.display = '';
+    });
+    
+    // Load column options and populate dropdowns
+    const optionsRes = await fetch('/api/column-options');
+    const options = await optionsRes.json();
+    
+    const dropdownColumns = ['asset_class', 'datatype', 'delivery_frequency', 'delivery_lag', 
+                             'delivery_method', 'region', 'stage', 'status'];
+    
+    dropdownColumns.forEach(col => {
+        const select = document.getElementById(`${col}-select`);
+        if (select) {
+            const isMulti = options[col]?.is_multi_value || false;
+            
+            // Remove any existing tag container for this column first
+            const existingTagContainer = document.getElementById(`${col}-tags`);
+            if (existingTagContainer) {
+                existingTagContainer.remove();
+            }
+            
+            if (isMulti) {
+                // Create tag-based multi-select UI
+                const container = select.parentElement;
+                const tagContainer = document.createElement('div');
+                tagContainer.className = 'tag-select-container';
+                tagContainer.id = `${col}-tags`;
+                
+                if (options[col] && options[col].values) {
+                    options[col].values.forEach(val => {
+                        const tag = document.createElement('span');
+                        tag.className = 'tag-select-option';
+                        tag.dataset.value = val;
+                        tag.textContent = val;
+                        tag.addEventListener('click', () => {
+                            tag.classList.toggle('selected');
+                        });
+                        tagContainer.appendChild(tag);
+                    });
+                }
+                
+                // Hide select and show tag container
+                select.style.display = 'none';
+                container.insertBefore(tagContainer, select.nextSibling);
+                const hint = container.querySelector('.form-hint-multi');
+                if (hint) hint.style.display = 'none';
+            } else {
+                // Single select - keep as dropdown
+                select.removeAttribute('multiple');
+                select.removeAttribute('size');
+                select.innerHTML = '';
+                const defaultOpt = document.createElement('option');
+                defaultOpt.value = '';
+                defaultOpt.textContent = '-- Select --';
+                select.appendChild(defaultOpt);
+                
+                if (options[col] && options[col].values) {
+                    options[col].values.forEach(val => {
+                        const option = document.createElement('option');
+                        option.value = val;
+                        option.textContent = val;
+                        select.appendChild(option);
+                    });
+                }
+                
+                const hint = select.parentElement.querySelector('.form-hint-multi');
+                if (hint) hint.style.display = 'none';
+            }
+        }
+    });
+    
     if (id) {
-        document.getElementById('editModalTitle').textContent = 'Edit Product';
+        document.getElementById('editModalTitle').textContent = 'Edit Dataset';
         const res = await fetch(`/api/products/${id}`);
         const product = await res.json();
         for (const [key, value] of Object.entries(product)) {
             const input = form.elements[key];
-            if (input) input.value = value || '';
+            if (input) {
+                if (input.tagName === 'SELECT' && input.multiple) {
+                    // Multi-select: split by comma and select each value
+                    const values = value ? value.split(',').map(v => v.trim()).filter(v => v) : [];
+                    Array.from(input.options).forEach(opt => {
+                        opt.selected = values.includes(opt.value);
+                    });
+                } else if (input.tagName === 'SELECT') {
+                    input.value = value || '';
+                } else {
+                    input.value = value || '';
+                }
+            }
+            
+            // Handle tag containers for multi-value fields
+            const tagContainer = document.getElementById(`${key}-tags`);
+            if (tagContainer) {
+                const values = value ? value.split(',').map(v => v.trim()).filter(v => v) : [];
+                tagContainer.querySelectorAll('.tag-select-option').forEach(tag => {
+                    if (values.includes(tag.dataset.value)) {
+                        tag.classList.add('selected');
+                    }
+                });
+            }
         }
     } else {
-        document.getElementById('editModalTitle').textContent = 'Add Product';
+        document.getElementById('editModalTitle').textContent = 'Add Dataset';
     }
     
     showModal('editModal');
@@ -305,7 +405,33 @@ async function saveProduct(e) {
     e.preventDefault();
     const form = document.getElementById('productForm');
     const formData = new FormData(form);
-    const data = Object.fromEntries(formData.entries());
+    const data = {};
+    
+    // Handle form data, joining multi-select values with commas
+    for (const [key, value] of formData.entries()) {
+        // Skip checkbox array inputs (handled separately)
+        if (key.endsWith('[]')) continue;
+        
+        const input = form.elements[key];
+        if (input && input.tagName === 'SELECT' && input.multiple) {
+            // Multi-select: get all selected values and join with comma
+            const selected = Array.from(input.selectedOptions).map(opt => opt.value);
+            data[key] = selected.join(', ');
+        } else {
+            data[key] = value;
+        }
+    }
+    
+    // Handle tag containers for multi-value fields
+    form.querySelectorAll('.tag-select-container').forEach(container => {
+        const selectedTags = container.querySelectorAll('.tag-select-option.selected');
+        if (selectedTags.length > 0) {
+            const fieldName = container.id.replace('-tags', '');
+            const values = Array.from(selectedTags).map(tag => tag.dataset.value);
+            data[fieldName] = values.join(', ');
+        }
+    });
+    
     const id = data.id;
     delete data.id;
     
@@ -395,4 +521,89 @@ async function deleteUser(id) {
         alert(err.error);
     }
 }
+
+// Column Options Management
+let columnOptions = {};
+let selectedColumn = null;
+
+async function openOptionsModal() {
+    await loadColumnOptions();
+    showModal('optionsModal');
+}
+
+async function loadColumnOptions() {
+    const res = await fetch('/api/column-options');
+    columnOptions = await res.json();
+    
+    const columnList = document.getElementById('columnList');
+    const columns = ['asset_class', 'datatype', 'delivery_frequency', 'delivery_lag', 
+                     'delivery_method', 'region', 'stage', 'status'];
+    columnList.innerHTML = columns.map(col => `
+        <li class="column-item" data-column="${col}">${col.replace(/_/g, ' ')}</li>
+    `).join('');
+    
+    columnList.querySelectorAll('.column-item').forEach(item => {
+        item.addEventListener('click', () => selectColumn(item.dataset.column));
+    });
+}
+
+function selectColumn(colName) {
+    selectedColumn = colName;
+    document.getElementById('selectedColumnName').textContent = colName.replace(/_/g, ' ');
+    
+    // Update active state
+    document.querySelectorAll('.column-item').forEach(item => {
+        item.classList.toggle('active', item.dataset.column === colName);
+    });
+    
+    // Load options for this column
+    const options = columnOptions[colName]?.values || [];
+    const tbody = document.querySelector('#optionsTable tbody');
+    tbody.innerHTML = options.map(val => {
+        // Find option ID (we'll need to fetch full list)
+        return `<tr><td>${val}</td><td><button class="btn btn-danger btn-sm" onclick="deleteOptionValue('${colName}', '${val}')">Delete</button></td></tr>`;
+    }).join('');
+}
+
+async function deleteOptionValue(colName, value) {
+    if (!confirm(`Delete "${value}"?`)) return;
+    const res = await fetch('/api/column-options/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ column_name: colName, value: value })
+    });
+    if (res.ok) {
+        await loadColumnOptions();
+        if (selectedColumn) selectColumn(selectedColumn);
+    } else {
+        const err = await res.json();
+        alert(err.error || 'Failed to delete');
+    }
+}
+
+document.getElementById('addOptionForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!selectedColumn) {
+        alert('Please select a column first');
+        return;
+    }
+    const value = document.getElementById('newOptionValue').value;
+    const res = await fetch('/api/column-options', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            column_name: selectedColumn,
+            value: value,
+            is_multi_value: false
+        })
+    });
+    if (res.ok) {
+        document.getElementById('newOptionValue').value = '';
+        await loadColumnOptions();
+        if (selectedColumn) selectColumn(selectedColumn);
+    } else {
+        const err = await res.json();
+        alert(err.error || 'Failed to add option');
+    }
+});
 
