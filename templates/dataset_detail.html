@@ -148,13 +148,35 @@
                     <tr><td>Data ID</td><td>{{ product.data_ID or 'N/A' }}</td></tr>
                     <tr><td>Stage</td><td>{{ product.stage or 'N/A' }}</td></tr>
                     <tr><td>Status</td><td>{{ product.status or 'N/A' }}</td></tr>
-                    <tr><td>Datatype</td><td>{{ product.datatype or 'N/A' }}</td></tr>
-                    <tr><td>Region</td><td>{{ product.region or 'N/A' }}</td></tr>
-                    <tr><td>Delivery Frequency</td><td>{{ product.delivery_frequency or 'N/A' }}</td></tr>
-                    <tr><td>Delivery Method</td><td>{{ product.delivery_method or 'N/A' }}</td></tr>
-                    {% if is_admin %}
+                    <tr><td>Vendor</td><td>{{ product.vendor or 'N/A' }}</td></tr>
                     <tr><td>Vendor Type</td><td>{{ product.vendor_type or 'N/A' }}</td></tr>
+                    <tr><td>Datatype</td><td>{{ product.datatype or 'N/A' }}</td></tr>
+                    <tr><td>Sub Datatype</td><td>{{ product.sub_datatype or 'N/A' }}</td></tr>
+                    <tr><td>Asset Class</td><td>{{ product.asset_class or 'N/A' }}</td></tr>
+                    <tr><td>Coverage Details</td><td>{{ product.coverage_details or 'N/A' }}</td></tr>
+                    <tr><td>Sector</td><td>{{ product.sector or 'N/A' }}</td></tr>
+                    <tr><td>Region</td><td>{{ product.region or 'N/A' }}</td></tr>
+                    <tr><td>Sub Region</td><td>{{ product.sub_region or 'N/A' }}</td></tr>
+                    <tr><td>S3 Location</td><td>{{ product.s3_location or 'N/A' }}</td></tr>
+                    <tr><td>Internal Location</td><td>{{ product.internal_location or 'N/A' }}</td></tr>
+                    <tr><td>Delivery Frequency</td><td>{{ product.delivery_frequency or 'N/A' }}</td></tr>
+                    <tr><td>Delivery Lag</td><td>{{ product.delivery_lag or 'N/A' }}</td></tr>
+                    <tr><td>Delivery Method</td><td>{{ product.delivery_method or 'N/A' }}</td></tr>
+                    <tr><td>Production Date</td><td>{{ product.prod_date.strftime('%Y-%m-%d') if product.prod_date else 'N/A' }}</td></tr>
+                    <tr><td>Trial Date</td><td>{{ product.trial_date.strftime('%Y-%m-%d') if product.trial_date else 'N/A' }}</td></tr>
+                    <tr><td>Created Date</td><td>{{ product.created_date.strftime('%Y-%m-%d') if product.created_date else 'N/A' }}</td></tr>
+                    <tr><td>End Date</td><td>{{ product.end_date.strftime('%Y-%m-%d') if product.end_date else 'N/A' }}</td></tr>
+                    <tr><td>PIT Date</td><td>{{ product.pit_date.strftime('%Y-%m-%d') if product.pit_date else 'N/A' }}</td></tr>
+                    <tr><td>History Start</td><td>{{ product.history_start.strftime('%Y-%m-%d') if product.history_start else 'N/A' }}</td></tr>
+                    {% if is_admin %}
+                    <tr><td>User</td><td>{{ product.user or 'N/A' }}</td></tr>
+                    <tr><td>Contract Start</td><td>{{ product.contract_start.strftime('%Y-%m-%d') if product.contract_start else 'N/A' }}</td></tr>
+                    <tr><td>Contract End</td><td>{{ product.contract_end.strftime('%Y-%m-%d') if product.contract_end else 'N/A' }}</td></tr>
+                    <tr><td>Term</td><td>{{ product.term or 'N/A' }}</td></tr>
                     <tr><td>Annual Cost</td><td>{{ product.annual_cost or 'N/A' }}</td></tr>
+                    <tr><td>Price Cap</td><td>{{ product.price_cap or 'N/A' }}</td></tr>
+                    <tr><td>Use Permissions</td><td>{{ product.use_permissions or 'N/A' }}</td></tr>
+                    <tr><td>Notes</td><td>{{ product.notes or 'N/A' }}</td></tr>
                     {% endif %}
                 </tbody>
             </table>
