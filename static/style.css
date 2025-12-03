@@ -48,8 +48,9 @@ body {
 }
 
 .nav-icon {
-    width: 24px;
-    height: 24px;
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
 }
 
 .nav-search {
@@ -323,18 +324,28 @@ body {
 }
 
 .tag.category {
-    background: #dbeafe;
-    color: var(--primary);
+    background: #fed7aa;
+    color: #c2410c;
 }
 
 .tag.region {
-    background: #dcfce7;
-    color: #16a34a;
+    background: #a5f3fc;
+    color: #0e7490;
 }
 
 .tag.stage {
     background: #e9d5ff;
     color: #9333ea;
+}
+
+.tag.stage.stage-licensed {
+    background: #dcfce7;
+    color: #16a34a;
+}
+
+.tag.stage.stage-trial {
+    background: #dbeafe;
+    color: #2563eb;
 }
 
 .tag.status {

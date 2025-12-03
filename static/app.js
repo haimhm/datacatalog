@@ -92,7 +92,7 @@ function renderProducts() {
             <div class="product-meta">
                 ${p.datatype ? `<span class="tag category">${p.datatype}</span>` : ''}
                 ${p.region ? `<span class="tag region">${p.region}</span>` : ''}
-                ${p.stage ? `<span class="tag stage">${p.stage}</span>` : ''}
+                ${p.stage ? `<span class="tag stage stage-${p.stage.trim().toLowerCase().replace(/\s+/g, '-')}">${p.stage}</span>` : ''}
                 ${p.status ? `<span class="tag status">${p.status}</span>` : ''}
             </div>
             <div class="product-desc">${p.long_desc || ''}</div>
