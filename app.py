@@ -1,8 +1,10 @@
-from flask import Flask, render_template, request, jsonify, redirect, url_for
+from flask import Flask, render_template, request, jsonify, redirect, url_for, send_from_directory
 from flask_login import LoginManager, login_user, logout_user, current_user, login_required
 from models import db, User, DataProduct, ColumnOption
 from config import Config, SENSITIVE_COLUMNS
 from datetime import datetime
+import os
+from werkzeug.utils import secure_filename
 
 DATE_FIELDS = ['prod_date', 'trial_date', 'created_date', 'end_date', 'pit_date', 
                'history_start', 'contract_start', 'contract_end']
@@ -32,6 +34,8 @@ def load_user(user_id):
 # Create tables and default users
 with app.app_context():
     db.create_all()
+    # Ensure uploads directory exists
+    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
     if not User.query.filter_by(username='admin').first():
         admin = User(username='admin', role='admin')
         admin.set_password('admin')
@@ -210,6 +214,123 @@ def delete_column_option_by_value():
         db.session.delete(option)
         db.session.commit()
     return jsonify({'success': True})
+
+@app.route('/dataset/<int:id>')
+def dataset_detail(id):
+    """Render the dataset detail page"""
+    product = DataProduct.query.get_or_404(id)
+    is_admin = current_user.is_authenticated and current_user.role == 'admin'
+    
+    # Parse linked_docs string into a list
+    linked_docs = []
+    if product.linked_docs:
+        # Split by newline or comma
+        docs_str = str(product.linked_docs).strip()
+        if docs_str:
+            linked_docs = [d.strip() for d in docs_str.replace('\r', '').split('\n') if d.strip()]
+            if not linked_docs:
+                # Try comma separation if no newlines
+                linked_docs = [d.strip() for d in docs_str.split(',') if d.strip()]
+    
+    return render_template('dataset_detail.html', 
+                         product=product, 
+                         linked_docs=linked_docs,
+                         is_admin=is_admin)
+
+def allowed_file(filename):
+    """Check if file extension is allowed"""
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in Config.ALLOWED_EXTENSIONS
+
+@app.route('/api/dataset/<int:id>/upload', methods=['POST'])
+@login_required
+def upload_document(id):
+    """Upload a document for a dataset"""
+    if current_user.role != 'admin':
+        return jsonify({'error': 'Admin access required'}), 403
+    
+    product = DataProduct.query.get_or_404(id)
+    
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file provided'}), 400
+    
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'error': 'No file selected'}), 400
+    
+    if file and allowed_file(file.filename):
+        # Ensure upload directory exists
+        os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+        
+        # Secure filename and create unique name
+        filename = secure_filename(file.filename)
+        # Add timestamp to make filename unique
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S_')
+        filename = timestamp + filename
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(filepath)
+        
+        # Create URL for the file
+        file_url = f"/uploads/{filename}"
+        
+        # Add to linked_docs
+        if product.linked_docs:
+            product.linked_docs = product.linked_docs + '\n' + file_url
+        else:
+            product.linked_docs = file_url
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'url': file_url,
+            'filename': filename
+        })
+    else:
+        return jsonify({'error': 'File type not allowed'}), 400
+
+@app.route('/api/dataset/<int:id>/documents', methods=['DELETE'])
+@login_required
+def delete_document(id):
+    """Delete a document from a dataset"""
+    if current_user.role != 'admin':
+        return jsonify({'error': 'Admin access required'}), 403
+    
+    product = DataProduct.query.get_or_404(id)
+    data = request.get_json()
+    url_to_delete = data.get('url', '')
+    
+    if not url_to_delete:
+        return jsonify({'error': 'No URL provided'}), 400
+    
+    # Remove from linked_docs
+    if product.linked_docs:
+        docs = [d.strip() for d in product.linked_docs.replace('\r', '').split('\n') if d.strip()]
+        if not docs:
+            docs = [d.strip() for d in product.linked_docs.split(',') if d.strip()]
+        
+        docs = [d for d in docs if d != url_to_delete]
+        product.linked_docs = '\n'.join(docs) if docs else None
+        
+        # Try to delete file from filesystem
+        if url_to_delete.startswith('/uploads/'):
+            filename = url_to_delete.replace('/uploads/', '')
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            if os.path.exists(filepath):
+                try:
+                    os.remove(filepath)
+                except Exception as e:
+                    # Log error but don't fail the request
+                    print(f"Error deleting file {filepath}: {e}")
+        
+        db.session.commit()
+        return jsonify({'success': True})
+    else:
+        return jsonify({'error': 'No documents found'}), 404
+
+@app.route('/uploads/<filename>')
+def uploaded_file(filename):
+    """Serve uploaded files"""
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 @app.route('/api/filters')
 def get_filters():

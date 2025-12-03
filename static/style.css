@@ -601,6 +601,76 @@ body {
     line-height: 1.6;
 }
 
+/* Linked Docs List */
+.linked-docs-list {
+    margin-bottom: 10px;
+    min-height: 40px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px;
+    background: var(--bg);
+}
+
+.linked-doc-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    margin-bottom: 4px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+}
+
+.linked-doc-item:last-child {
+    margin-bottom: 0;
+}
+
+.linked-doc-name {
+    flex: 1;
+    font-size: 14px;
+    color: var(--text);
+}
+
+.btn-remove-doc {
+    background: #dc2626;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+
+.btn-remove-doc:hover {
+    background: #b91c1c;
+}
+
+.linked-docs-display-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.linked-docs-display-list li {
+    padding: 4px 0;
+}
+
+.linked-docs-display-list li a {
+    color: var(--primary);
+    text-decoration: none;
+}
+
+.linked-docs-display-list li a:hover {
+    text-decoration: underline;
+}
+
 /* Options Management */
 .options-container {
     display: grid;

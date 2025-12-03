@@ -284,7 +284,10 @@
                     </div>
                     <div class="form-group full-width">
                         <label>Linked Docs</label>
-                        <textarea name="linked_docs" rows="2"></textarea>
+                        <div id="linkedDocsList" class="linked-docs-list"></div>
+                        <input type="text" id="linkedDocInput" placeholder="Enter file path or URL" style="width: 100%; margin-top: 5px;">
+                        <button type="button" id="addLinkedDocBtn" class="btn btn-secondary" style="margin-top: 5px;">Add Document</button>
+                        <textarea name="linked_docs" id="linked_docs_hidden" style="display: none;"></textarea>
                     </div>
                     <!-- Sensitive fields (Admin only) -->
                     <div class="form-group">

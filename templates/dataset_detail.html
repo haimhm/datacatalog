@@ -175,18 +175,22 @@
             {% endif %}
 
             <ul class="document-list" id="documentList">
-                {% for doc in linked_docs %}
-                <li class="document-item">
-                    <a href="{{ doc }}" target="_blank">{{ doc.split('/')[-1] }}</a>
-                    {% if is_admin %}
-                    <button class="delete-doc-btn" onclick="deleteDocument('{{ doc }}')">Delete</button>
-                    {% endif %}
-                </li>
-                {% endfor %}
+                {% if linked_docs and linked_docs|length > 0 %}
+                    {% for doc in linked_docs %}
+                        {% if doc %}
+                        <li class="document-item">
+                            {% set filename = doc.split('/')[-1] if '/' in doc else (doc.split('\\')[-1] if '\\' in doc else doc) %}
+                            <a href="{{ doc }}" target="_blank">{{ filename }}</a>
+                            {% if is_admin %}
+                            <button class="delete-doc-btn" onclick="deleteDocument('{{ doc }}')">Delete</button>
+                            {% endif %}
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+                {% else %}
+                    <p style="color: var(--text-muted);">No documents linked yet.</p>
+                {% endif %}
             </ul>
-            {% if not linked_docs %}
-            <p style="color: var(--text-muted);">No documents linked yet.</p>
-            {% endif %}
         </div>
     </div>
 

@@ -250,24 +250,54 @@ async function logout() {
     await loadProducts();
 }
 
+function getFileName(path) {
+    if (!path) return '';
+    // Extract filename from path (handles both / and \ separators)
+    return path.split(/[/\\]/).pop() || path;
+}
+
 async function showProductDetail(id) {
     const res = await fetch(`/api/products/${id}`);
     const product = await res.json();
     
     const sensitiveFields = ['user', 'contract_start', 'contract_end', 'term', 'annual_cost', 'price_cap', 'use_permissions', 'notes'];
     const isAdmin = currentUser && currentUser.role === 'admin';
-    const skipFields = ['id', 'short_desc', 'long_desc', 'data_ID'];
+    const skipFields = ['id', 'short_desc', 'long_desc', 'data_ID', 'linked_docs'];
     
-    // Build table rows for all fields
+    // Handle linked_docs separately as a list FIRST
+    let linkedDocsRow = '';
+    if (product.linked_docs) {
+        const docs = product.linked_docs.split(/[\n,]/).map(d => d.trim()).filter(d => d);
+        if (docs.length > 0) {
+            const docsList = docs.map(doc => {
+                const fileName = getFileName(doc);
+                // Escape HTML in the URL for safety
+                const safeUrl = doc.replace(/"/g, '&quot;');
+                return `<li><a href="${safeUrl}" target="_blank">${fileName}</a></li>`;
+            }).join('');
+            linkedDocsRow = `<tr><td class="field-name">linked docs</td><td><ul class="linked-docs-display-list">${docsList}</ul></td></tr>`;
+        } else {
+            linkedDocsRow = `<tr><td class="field-name">linked docs</td><td>N/A</td></tr>`;
+        }
+    } else {
+        linkedDocsRow = `<tr><td class="field-name">linked docs</td><td>N/A</td></tr>`;
+    }
+    
+    // Build table rows for all fields (excluding linked_docs which is handled above)
     const tableRows = Object.keys(product)
-        .filter(key => !skipFields.includes(key))
+        .filter(key => !skipFields.includes(key) && key !== 'linked_docs') // Explicitly exclude linked_docs
         .map(field => {
             const isSensitive = sensitiveFields.includes(field);
             if (isSensitive && !isAdmin) return '';
             const label = field.replace(/_/g, ' ');
             const badge = isSensitive ? ' <span class="sensitive-badge">Admin</span>' : '';
-            return `<tr><td class="field-name">${label}${badge}</td><td>${product[field] || 'N/A'}</td></tr>`;
-        }).join('');
+            // Escape HTML in values
+            const value = product[field] || 'N/A';
+            const safeValue = typeof value === 'string' ? value.replace(/</g, '&lt;').replace(/>/g, '&gt;') : value;
+            return `<tr><td class="field-name">${label}${badge}</td><td>${safeValue}</td></tr>`;
+        })
+        .filter(row => row !== '') // Remove empty rows
+        .join('');
     
     const detailContent = document.getElementById('detailContent');
     detailContent.innerHTML = `
@@ -286,7 +316,7 @@ async function showProductDetail(id) {
             <p>${product.long_desc || 'No description available.'}</p>
         </div>
         <table class="detail-table">
-            <tbody>${tableRows}</tbody>
+            <tbody>${tableRows}${linkedDocsRow}</tbody>
         </table>
     `;
     
@@ -382,6 +412,9 @@ async function openProductForm(id = null) {
         }
     });
     
+    // Initialize linked docs list
+    initializeLinkedDocsList();
+    
     if (id) {
         document.getElementById('editModalTitle').textContent = 'Edit Dataset';
         const res = await fetch(`/api/products/${id}`);
@@ -412,12 +445,93 @@ async function openProductForm(id = null) {
                     }
                 });
             }
+            
+            // Handle linked_docs separately
+            if (key === 'linked_docs' && value) {
+                const docs = value.split(/[\n,]/).map(d => d.trim()).filter(d => d);
+                const listContainer = document.getElementById('linkedDocsList');
+                listContainer.innerHTML = '';
+                docs.forEach(doc => {
+                    addLinkedDocToList(doc);
+                });
+            }
         }
     } else {
         document.getElementById('editModalTitle').textContent = 'Add Dataset';
+        document.getElementById('linkedDocsList').innerHTML = '';
+        document.getElementById('linked_docs_hidden').value = '';
     }
     
     showModal('editModal');
+}
+
+function initializeLinkedDocsList() {
+    const addBtn = document.getElementById('addLinkedDocBtn');
+    const input = document.getElementById('linkedDocInput');
+    const listContainer = document.getElementById('linkedDocsList');
+    
+    if (!addBtn || !input || !listContainer) return;
+    
+    // Remove existing listeners by replacing elements
+    const handleAdd = () => {
+        const currentInput = document.getElementById('linkedDocInput');
+        const path = currentInput.value.trim();
+        if (path) {
+            addLinkedDocToList(path);
+            currentInput.value = '';
+            updateLinkedDocsHidden();
+        }
+    };
+    
+    // Replace button to remove old listeners
+    const newAddBtn = addBtn.cloneNode(true);
+    addBtn.parentNode.replaceChild(newAddBtn, addBtn);
+    newAddBtn.addEventListener('click', handleAdd);
+    
+    // Replace input to remove old listeners
+    const newInput = input.cloneNode(true);
+    input.parentNode.replaceChild(newInput, input);
+    newInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            handleAdd();
+        }
+    });
+}
+
+function addLinkedDocToList(path) {
+    const listContainer = document.getElementById('linkedDocsList');
+    if (!listContainer) return;
+    
+    const fileName = getFileName(path);
+    const item = document.createElement('div');
+    item.className = 'linked-doc-item';
+    item.innerHTML = `
+        <span class="linked-doc-name">${fileName}</span>
+        <span class="linked-doc-path" style="display: none;">${path}</span>
+        <button type="button" class="btn-remove-doc" onclick="removeLinkedDoc(this)">×</button>
+    `;
+    listContainer.appendChild(item);
+    updateLinkedDocsHidden();
+}
+
+function removeLinkedDoc(btn) {
+    btn.closest('.linked-doc-item').remove();
+    updateLinkedDocsHidden();
+}
+
+// Make removeLinkedDoc available globally
+window.removeLinkedDoc = removeLinkedDoc;
+
+function updateLinkedDocsHidden() {
+    const listContainer = document.getElementById('linkedDocsList');
+    const hiddenInput = document.getElementById('linked_docs_hidden');
+    if (!listContainer || !hiddenInput) return;
+    
+    const paths = Array.from(listContainer.querySelectorAll('.linked-doc-path'))
+        .map(span => span.textContent.trim())
+        .filter(p => p);
+    hiddenInput.value = paths.join('\n');
 }
 
 async function saveProduct(e) {
@@ -425,6 +539,9 @@ async function saveProduct(e) {
     const form = document.getElementById('productForm');
     const formData = new FormData(form);
     const data = {};
+    
+    // Update linked docs hidden field before processing
+    updateLinkedDocsHidden();
     
     // Handle form data, joining multi-select values with commas
     for (const [key, value] of formData.entries()) {
