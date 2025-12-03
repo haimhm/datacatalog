@@ -118,7 +118,7 @@
             font-size: 12px;
         }
         .delete-doc-btn:hover {
-            background: #dc2626;
+            background: var(--danger-hover);
         }
         .upload-progress {
             display: none;
@@ -178,7 +178,7 @@
                 {% if linked_docs and linked_docs|length > 0 %}
                     {% for doc in linked_docs %}
                         {% if doc %}
-                        <li class="document-item">
+                        <li class="document-item" data-doc-url="{{ doc }}">
                             {% set filename = doc.split('/')[-1] if '/' in doc else (doc.split('\\')[-1] if '\\' in doc else doc) %}
                             <a href="{{ doc }}" target="_blank">{{ filename }}</a>
                             {% if is_admin %}
@@ -267,9 +267,13 @@
                 const list = document.getElementById('documentList');
                 const item = document.createElement('li');
                 item.className = 'document-item';
+                item.setAttribute('data-doc-url', url);
+                
+                // Only show delete button for admins
+                const deleteBtn = isAdmin ? `<button class="delete-doc-btn" onclick="deleteDocument('${url}')">Delete</button>` : '';
                 item.innerHTML = `
                     <a href="${url}" target="_blank">${filename}</a>
-                    <button class="delete-doc-btn" onclick="deleteDocument('${url}')">Delete</button>
+                    ${deleteBtn}
                 `;
                 list.appendChild(item);
                 
@@ -293,14 +297,11 @@
                     const result = await response.json();
                     
                     if (result.success) {
-                        // Remove from list
-                        const items = document.querySelectorAll('.document-item');
-                        items.forEach(item => {
-                            const link = item.querySelector('a');
-                            if (link && link.href.includes(url.split('/').pop())) {
-                                item.remove();
-                            }
-                        });
+                        // Remove from list using data attribute for reliable matching
+                        const item = document.querySelector(`.document-item[data-doc-url="${url}"]`);
+                        if (item) {
+                            item.remove();
+                        }
 
                         // Show empty state if no documents left
                         const list = document.getElementById('documentList');
