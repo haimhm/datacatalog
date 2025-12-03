@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Database and uploads (should be volumes)
+instance/data_catalog.db
+uploads/*
+*.db
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+*.md
+README*
+
+# Test files
+test_*.py
+*_test.py
+
+# Temporary files
+*.log
+*.tmp
+.DS_Store
+
+# Excel files (if not needed in container)
+*.xlsx
+*.xls
+
+# Images (if not needed in container)
+*.png
+*.jpg
+*.jpeg
+*.gif
+
+
