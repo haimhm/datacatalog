@@ -215,12 +215,44 @@ def delete_column_option_by_value():
 def get_filters():
     """Get unique values for filter dropdowns"""
     products = DataProduct.query.all()
+    
+    def extract_values(field_value):
+        """Extract individual values from a field, splitting by comma if needed"""
+        if not field_value:
+            return []
+        # Convert to string and split by comma
+        value_str = str(field_value).strip()
+        if not value_str or value_str.lower() in ['nan', 'none', '']:
+            return []
+        # Split by comma and clean up each value
+        values = [v.strip() for v in value_str.split(',') if v.strip() and v.strip().lower() not in ['nan', 'none']]
+        return values
+    
+    # Collect all unique values, splitting comma-separated ones
+    categories = set()
+    vendors = set()
+    regions = set()
+    statuses = set()
+    stages = set()
+    
+    for p in products:
+        if p.datatype:
+            categories.update(extract_values(p.datatype))
+        if p.vendor:
+            vendors.update(extract_values(p.vendor))
+        if p.region:
+            regions.update(extract_values(p.region))
+        if p.status:
+            statuses.update(extract_values(p.status))
+        if p.stage:
+            stages.update(extract_values(p.stage))
+    
     filters = {
-        'categories': sorted(set(p.datatype for p in products if p.datatype)),
-        'vendors': sorted(set(p.vendor for p in products if p.vendor)),
-        'regions': sorted(set(p.region for p in products if p.region)),
-        'statuses': sorted(set(p.status for p in products if p.status)),
-        'stages': sorted(set(p.stage for p in products if p.stage)),
+        'categories': sorted(categories),
+        'vendors': sorted(vendors),
+        'regions': sorted(regions),
+        'statuses': sorted(statuses),
+        'stages': sorted(stages),
     }
     return jsonify(filters)
 

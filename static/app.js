@@ -105,6 +105,23 @@ function renderProducts() {
 function applyFilters() {
     const searchTerm = document.getElementById('searchInput').value.toLowerCase();
     
+    // Helper function to check if a value matches any filter (handles comma-separated values)
+    function matchesFilter(productValue, filterValues) {
+        if (filterValues.length === 0) return true;
+        if (!productValue) return false;
+        
+        // Split product value by comma and trim each part
+        const productValues = productValue.split(',').map(v => v.trim());
+        
+        // Check if any of the product values match any of the filter values
+        // Use partial matching: if filter value is contained in product value, it matches
+        return productValues.some(pv => 
+            filterValues.some(fv => 
+                pv === fv || pv.includes(fv) || fv.includes(pv)
+            )
+        );
+    }
+    
     filteredProducts = allProducts.filter(p => {
         // Search filter
         const searchMatch = !searchTerm || 
@@ -113,25 +130,20 @@ function applyFilters() {
             (p.vendor && p.vendor.toLowerCase().includes(searchTerm)) ||
             (p.data_ID && p.data_ID.toLowerCase().includes(searchTerm));
         
-        // Category filter
-        const categoryMatch = currentFilters.categories.length === 0 || 
-            currentFilters.categories.includes(p.datatype);
+        // Category filter (handles comma-separated values)
+        const categoryMatch = matchesFilter(p.datatype, currentFilters.categories);
         
-        // Status filter
-        const statusMatch = currentFilters.statuses.length === 0 || 
-            currentFilters.statuses.includes(p.status);
+        // Status filter (handles comma-separated values)
+        const statusMatch = matchesFilter(p.status, currentFilters.statuses);
         
-        // Stage filter
-        const stageMatch = currentFilters.stages.length === 0 || 
-            currentFilters.stages.includes(p.stage);
+        // Stage filter (handles comma-separated values)
+        const stageMatch = matchesFilter(p.stage, currentFilters.stages);
         
-        // Region filter
-        const regionMatch = currentFilters.regions.length === 0 || 
-            currentFilters.regions.includes(p.region);
+        // Region filter (handles comma-separated values)
+        const regionMatch = matchesFilter(p.region, currentFilters.regions);
         
-        // Vendor filter
-        const vendorMatch = currentFilters.vendors.length === 0 || 
-            currentFilters.vendors.includes(p.vendor);
+        // Vendor filter (handles comma-separated values)
+        const vendorMatch = matchesFilter(p.vendor, currentFilters.vendors);
         
         return searchMatch && categoryMatch && statusMatch && stageMatch && regionMatch && vendorMatch;
     });
@@ -180,7 +192,14 @@ function setupEventListeners() {
         const card = e.target.closest('.product-card');
         if (card) {
             const id = card.dataset.id;
-            await showProductDetail(id);
+            // Check if clicking on "View Product" link or card
+            if (e.target.classList.contains('view-link') || e.target.closest('.view-link')) {
+                // Navigate to detail page
+                window.location.href = `/dataset/${id}`;
+            } else {
+                // Show modal for quick view
+                await showProductDetail(id);
+            }
         }
     });
     

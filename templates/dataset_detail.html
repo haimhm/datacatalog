@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ product.short_desc or product.data_ID }} - Dataset Details</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .detail-page {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .detail-header {
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid var(--border);
+        }
+        .detail-title {
+            font-size: 28px;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 10px;
+        }
+        .detail-vendor {
+            color: var(--text-muted);
+            font-size: 16px;
+        }
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        .detail-section {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .detail-section h2 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: var(--text);
+            font-size: 20px;
+        }
+        .detail-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .detail-table td {
+            padding: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+        .detail-table td:first-child {
+            font-weight: 500;
+            width: 200px;
+            color: var(--text-muted);
+        }
+        .documents-section {
+            margin-top: 30px;
+        }
+        .upload-area {
+            border: 2px dashed var(--border);
+            border-radius: 8px;
+            padding: 30px;
+            text-align: center;
+            margin-bottom: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .upload-area:hover {
+            border-color: var(--primary);
+            background: rgba(37, 99, 235, 0.05);
+        }
+        .upload-area.dragover {
+            border-color: var(--primary);
+            background: rgba(37, 99, 235, 0.1);
+        }
+        .upload-input {
+            display: none;
+        }
+        .document-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .document-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px;
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            margin-bottom: 10px;
+        }
+        .document-item a {
+            color: var(--primary);
+            text-decoration: none;
+            flex: 1;
+        }
+        .document-item a:hover {
+            text-decoration: underline;
+        }
+        .delete-doc-btn {
+            background: var(--danger);
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .delete-doc-btn:hover {
+            background: #dc2626;
+        }
+        .upload-progress {
+            display: none;
+            margin-top: 10px;
+            color: var(--primary);
+        }
+    </style>
+</head>
+<body>
+    <div class="detail-page">
+        <a href="/" class="back-link">← Back to Catalog</a>
+        
+        <div class="detail-header">
+            <div class="detail-title">{{ product.short_desc or product.data_ID }}</div>
+            <div class="detail-vendor">by {{ product.vendor or 'Unknown' }}</div>
+        </div>
+
+        <div class="detail-section">
+            <h2>Description</h2>
+            <p>{{ product.long_desc or 'No description available.' }}</p>
+        </div>
+
+        <div class="detail-section">
+            <h2>Dataset Information</h2>
+            <table class="detail-table">
+                <tbody>
+                    <tr><td>Data ID</td><td>{{ product.data_ID or 'N/A' }}</td></tr>
+                    <tr><td>Stage</td><td>{{ product.stage or 'N/A' }}</td></tr>
+                    <tr><td>Status</td><td>{{ product.status or 'N/A' }}</td></tr>
+                    <tr><td>Datatype</td><td>{{ product.datatype or 'N/A' }}</td></tr>
+                    <tr><td>Region</td><td>{{ product.region or 'N/A' }}</td></tr>
+                    <tr><td>Delivery Frequency</td><td>{{ product.delivery_frequency or 'N/A' }}</td></tr>
+                    <tr><td>Delivery Method</td><td>{{ product.delivery_method or 'N/A' }}</td></tr>
+                    {% if is_admin %}
+                    <tr><td>Vendor Type</td><td>{{ product.vendor_type or 'N/A' }}</td></tr>
+                    <tr><td>Annual Cost</td><td>{{ product.annual_cost or 'N/A' }}</td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="detail-section documents-section">
+            <h2>Linked Documents</h2>
+            
+            {% if is_admin %}
+            <div class="upload-area" id="uploadArea">
+                <input type="file" id="fileInput" class="upload-input" multiple>
+                <p>Click to upload or drag and drop files here</p>
+                <p style="font-size: 12px; color: var(--text-muted); margin-top: 10px;">
+                    Supported: PDF, DOC, DOCX, XLS, XLSX, TXT, CSV, Images
+                </p>
+                <div class="upload-progress" id="uploadProgress">Uploading...</div>
+            </div>
+            {% endif %}
+
+            <ul class="document-list" id="documentList">
+                {% for doc in linked_docs %}
+                <li class="document-item">
+                    <a href="{{ doc }}" target="_blank">{{ doc.split('/')[-1] }}</a>
+                    {% if is_admin %}
+                    <button class="delete-doc-btn" onclick="deleteDocument('{{ doc }}')">Delete</button>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+            {% if not linked_docs %}
+            <p style="color: var(--text-muted);">No documents linked yet.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+        const datasetId = {{ product.id }};
+        const isAdmin = {{ 'true' if is_admin else 'false' }};
+
+        // File upload functionality
+        if (isAdmin) {
+            const uploadArea = document.getElementById('uploadArea');
+            const fileInput = document.getElementById('fileInput');
+            const uploadProgress = document.getElementById('uploadProgress');
+
+            uploadArea.addEventListener('click', () => fileInput.click());
+            
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.classList.add('dragover');
+            });
+
+            uploadArea.addEventListener('dragleave', () => {
+                uploadArea.classList.remove('dragover');
+            });
+
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('dragover');
+                const files = e.dataTransfer.files;
+                handleFiles(files);
+            });
+
+            fileInput.addEventListener('change', (e) => {
+                handleFiles(e.target.files);
+            });
+
+            async function handleFiles(files) {
+                for (let file of files) {
+                    await uploadFile(file);
+                }
+            }
+
+            async function uploadFile(file) {
+                const formData = new FormData();
+                formData.append('file', file);
+                
+                uploadProgress.style.display = 'block';
+                uploadProgress.textContent = `Uploading ${file.name}...`;
+
+                try {
+                    const response = await fetch(`/api/dataset/${datasetId}/upload`, {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        addDocumentToList(result.url, result.filename);
+                        uploadProgress.textContent = `Uploaded ${file.name} successfully!`;
+                        setTimeout(() => {
+                            uploadProgress.style.display = 'none';
+                        }, 2000);
+                    } else {
+                        alert('Upload failed: ' + (result.error || 'Unknown error'));
+                        uploadProgress.style.display = 'none';
+                    }
+                } catch (error) {
+                    alert('Upload failed: ' + error.message);
+                    uploadProgress.style.display = 'none';
+                }
+            }
+
+            function addDocumentToList(url, filename) {
+                const list = document.getElementById('documentList');
+                const item = document.createElement('li');
+                item.className = 'document-item';
+                item.innerHTML = `
+                    <a href="${url}" target="_blank">${filename}</a>
+                    <button class="delete-doc-btn" onclick="deleteDocument('${url}')">Delete</button>
+                `;
+                list.appendChild(item);
+                
+                // Update empty state
+                const emptyMsg = list.parentElement.querySelector('p');
+                if (emptyMsg) emptyMsg.remove();
+            }
+
+            async function deleteDocument(url) {
+                if (!confirm('Are you sure you want to delete this document?')) return;
+
+                try {
+                    const response = await fetch(`/api/dataset/${datasetId}/documents`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ url: url })
+                    });
+
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        // Remove from list
+                        const items = document.querySelectorAll('.document-item');
+                        items.forEach(item => {
+                            const link = item.querySelector('a');
+                            if (link && link.href.includes(url.split('/').pop())) {
+                                item.remove();
+                            }
+                        });
+
+                        // Show empty state if no documents left
+                        const list = document.getElementById('documentList');
+                        if (list.children.length === 0) {
+                            const emptyMsg = document.createElement('p');
+                            emptyMsg.style.color = 'var(--text-muted)';
+                            emptyMsg.textContent = 'No documents linked yet.';
+                            list.parentElement.appendChild(emptyMsg);
+                        }
+                    } else {
+                        alert('Delete failed: ' + (result.error || 'Unknown error'));
+                    }
+                } catch (error) {
+                    alert('Delete failed: ' + error.message);
+                }
+            }
+
+            // Make deleteDocument available globally
+            window.deleteDocument = deleteDocument;
+        }
+    </script>
+</body>
+</html>
