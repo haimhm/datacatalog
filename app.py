@@ -355,6 +355,7 @@ def get_filters():
     regions = set()
     statuses = set()
     stages = set()
+    asset_classes = set()
     
     for p in products:
         if p.datatype:
@@ -367,6 +368,8 @@ def get_filters():
             statuses.update(extract_values(p.status))
         if p.stage:
             stages.update(extract_values(p.stage))
+        if p.asset_class:
+            asset_classes.update(extract_values(p.asset_class))
     
     filters = {
         'categories': sorted(categories),
@@ -374,6 +377,7 @@ def get_filters():
         'regions': sorted(regions),
         'statuses': sorted(statuses),
         'stages': sorted(stages),
+        'asset_classes': sorted(asset_classes),
     }
     return jsonify(filters)
 

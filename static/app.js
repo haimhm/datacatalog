@@ -1,6 +1,6 @@
 let allProducts = [];
 let filteredProducts = [];
-let currentFilters = { categories: [], statuses: [], stages: [], regions: [], vendors: [] };
+let currentFilters = { categories: [], statuses: [], stages: [], regions: [], vendors: [], asset_classes: [] };
 let currentView = 'list';
 let currentUser = null;
 
@@ -52,6 +52,7 @@ async function loadFilters() {
     renderFilterList('stageFilters', filters.stages, 'stages');
     renderFilterList('regionFilters', filters.regions, 'regions');
     renderFilterList('vendorFilters', filters.vendors, 'vendors');
+    renderFilterList('assetClassFilters', filters.asset_classes, 'asset_classes');
 }
 
 function renderFilterList(containerId, items, filterKey) {
@@ -146,7 +147,10 @@ function applyFilters() {
         // Vendor filter (handles comma-separated values)
         const vendorMatch = matchesFilter(p.vendor, currentFilters.vendors);
         
-        return searchMatch && categoryMatch && statusMatch && stageMatch && regionMatch && vendorMatch;
+        // Asset Class filter (handles comma-separated values)
+        const assetClassMatch = matchesFilter(p.asset_class, currentFilters.asset_classes);
+        
+        return searchMatch && categoryMatch && statusMatch && stageMatch && regionMatch && vendorMatch && assetClassMatch;
     });
     
     renderProducts();
@@ -172,7 +176,7 @@ function setupEventListeners() {
     
     // Clear filters
     document.getElementById('clearFilters').addEventListener('click', () => {
-        currentFilters = { categories: [], statuses: [], stages: [], regions: [], vendors: [] };
+        currentFilters = { categories: [], statuses: [], stages: [], regions: [], vendors: [], asset_classes: [] };
         document.querySelectorAll('#sidebar input[type="checkbox"]').forEach(cb => cb.checked = false);
         document.getElementById('searchInput').value = '';
         applyFilters();
