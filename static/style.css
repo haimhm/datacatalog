@@ -332,6 +332,11 @@ body {
     color: #16a34a;
 }
 
+.tag.stage {
+    background: #e9d5ff;
+    color: #9333ea;
+}
+
 .tag.status {
     background: #fef3c7;
     color: #d97706;
