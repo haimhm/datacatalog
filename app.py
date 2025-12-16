@@ -31,19 +31,21 @@ login_manager.init_app(app)
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-# Create tables and default users
+# Create tables and default users (only in development)
 with app.app_context():
     db.create_all()
     # Ensure uploads directory exists
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-    if not User.query.filter_by(username='admin').first():
-        admin = User(username='admin', role='admin')
-        admin.set_password('admin')
-        user = User(username='user', role='standard')
-        user.set_password('user')
-        db.session.add(admin)
-        db.session.add(user)
-        db.session.commit()
+    # Only create default users if explicitly enabled via environment variable
+    if os.environ.get('CREATE_DEFAULT_USERS', '').lower() == 'true':
+        if not User.query.filter_by(username='admin').first():
+            admin = User(username='admin', role='admin')
+            admin.set_password('admin')
+            user = User(username='user', role='standard')
+            user.set_password('user')
+            db.session.add(admin)
+            db.session.add(user)
+            db.session.commit()
 
 @app.route('/')
 def index():
