@@ -4,6 +4,20 @@ let currentFilters = { categories: [], statuses: [], stages: [], regions: [], ve
 let currentView = 'list';
 let currentUser = null;
 
+// XSS Protection: Escape HTML special characters
+function escapeHtml(text) {
+    if (text == null || text === undefined) return '';
+    const str = String(text);
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return str.replace(/[&<>"']/g, m => map[m]);
+}
+
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
     await checkAuth();
@@ -26,8 +40,8 @@ function updateAuthUI() {
         authSection.innerHTML = `
             ${addBtn}
             <div class="user-info">
-                <span>${currentUser.username}</span>
-                <span class="role-badge ${roleClass}">${currentUser.role}</span>
+                <span>${escapeHtml(currentUser.username)}</span>
+                <span class="role-badge ${roleClass}">${escapeHtml(currentUser.role)}</span>
             </div>
             <button id="logoutBtn" class="btn btn-secondary">Sign Out</button>
         `;
@@ -59,8 +73,8 @@ function renderFilterList(containerId, items, filterKey) {
     const container = document.getElementById(containerId);
     container.innerHTML = items.map(item => `
         <label class="filter-item">
-            <input type="checkbox" value="${item}" data-filter="${filterKey}">
-            <span>${item}</span>
+            <input type="checkbox" value="${escapeHtml(item)}" data-filter="${escapeHtml(filterKey)}">
+            <span>${escapeHtml(item)}</span>
         </label>
     `).join('');
 }
@@ -86,18 +100,18 @@ function renderProducts() {
     document.getElementById('resultsCount').textContent = `${filteredProducts.length} results`;
     
     container.innerHTML = filteredProducts.map(p => `
-        <div class="product-card" data-id="${p.id}">
-            <div class="product-title">${p.short_desc || p.data_ID}</div>
-            <div class="product-vendor">by ${p.vendor || 'Unknown'}</div>
+        <div class="product-card" data-id="${escapeHtml(p.id)}">
+            <div class="product-title">${escapeHtml(p.short_desc || p.data_ID)}</div>
+            <div class="product-vendor">by ${escapeHtml(p.vendor || 'Unknown')}</div>
             <div class="product-meta">
-                ${p.datatype ? `<span class="tag category">${p.datatype}</span>` : ''}
-                ${p.region ? `<span class="tag region">${p.region}</span>` : ''}
-                ${p.stage ? `<span class="tag stage stage-${p.stage.trim().toLowerCase().replace(/\s+/g, '-')}">${p.stage}</span>` : ''}
-                ${p.status ? `<span class="tag status">${p.status}</span>` : ''}
+                ${p.datatype ? `<span class="tag category">${escapeHtml(p.datatype)}</span>` : ''}
+                ${p.region ? `<span class="tag region">${escapeHtml(p.region)}</span>` : ''}
+                ${p.stage ? `<span class="tag stage stage-${escapeHtml(p.stage.trim().toLowerCase().replace(/\s+/g, '-'))}">${escapeHtml(p.stage)}</span>` : ''}
+                ${p.status ? `<span class="tag status">${escapeHtml(p.status)}</span>` : ''}
             </div>
-            <div class="product-desc">${p.long_desc || ''}</div>
+            <div class="product-desc">${escapeHtml(p.long_desc || '')}</div>
             <div class="product-footer">
-                <span class="tag">${p.delivery_frequency || 'N/A'}</span>
+                <span class="tag">${escapeHtml(p.delivery_frequency || 'N/A')}</span>
                 <span class="view-link">View Product →</span>
             </div>
         </div>
@@ -277,8 +291,8 @@ async function showProductDetail(id) {
             const docsList = docs.map(doc => {
                 const fileName = getFileName(doc);
                 // Escape HTML in the URL for safety
-                const safeUrl = doc.replace(/"/g, '&quot;');
-                return `<li><a href="${safeUrl}" target="_blank">${fileName}</a></li>`;
+                const safeUrl = escapeHtml(doc);
+                return `<li><a href="${safeUrl}" target="_blank">${escapeHtml(fileName)}</a></li>`;
             }).join('');
             linkedDocsRow = `<tr><td class="field-name">linked docs</td><td><ul class="linked-docs-display-list">${docsList}</ul></td></tr>`;
         } else {
@@ -294,11 +308,11 @@ async function showProductDetail(id) {
         .map(field => {
             const isSensitive = sensitiveFields.includes(field);
             if (isSensitive && !isAdmin) return '';
-            const label = field.replace(/_/g, ' ');
+            const label = escapeHtml(field.replace(/_/g, ' '));
             const badge = isSensitive ? ' <span class="sensitive-badge">Admin</span>' : '';
             // Escape HTML in values
             const value = product[field] || 'N/A';
-            const safeValue = typeof value === 'string' ? value.replace(/</g, '&lt;').replace(/>/g, '&gt;') : value;
+            const safeValue = escapeHtml(value);
             return `<tr><td class="field-name">${label}${badge}</td><td>${safeValue}</td></tr>`;
         })
         .filter(row => row !== '') // Remove empty rows
@@ -307,18 +321,18 @@ async function showProductDetail(id) {
     const detailContent = document.getElementById('detailContent');
     detailContent.innerHTML = `
         <div class="detail-header">
-            <div class="detail-title">${product.short_desc || product.data_ID}</div>
-            <div class="detail-vendor">by ${product.vendor || 'Unknown'}</div>
+            <div class="detail-title">${escapeHtml(product.short_desc || product.data_ID)}</div>
+            <div class="detail-vendor">by ${escapeHtml(product.vendor || 'Unknown')}</div>
             ${isAdmin ? `
             <div class="admin-actions">
-                <button class="btn btn-primary" onclick="openProductForm(${product.id})">Edit</button>
-                <button class="btn btn-danger" onclick="deleteProduct(${product.id})">Delete</button>
+                <button class="btn btn-primary" onclick="openProductForm(${escapeHtml(product.id)})">Edit</button>
+                <button class="btn btn-danger" onclick="deleteProduct(${escapeHtml(product.id)})">Delete</button>
             </div>
             ` : ''}
         </div>
         <div class="detail-desc-section">
             <h3>Description</h3>
-            <p>${product.long_desc || 'No description available.'}</p>
+            <p>${escapeHtml(product.long_desc || 'No description available.')}</p>
         </div>
         <table class="detail-table">
             <tbody>${tableRows}${linkedDocsRow}</tbody>
@@ -512,8 +526,8 @@ function addLinkedDocToList(path) {
     const item = document.createElement('div');
     item.className = 'linked-doc-item';
     item.innerHTML = `
-        <span class="linked-doc-name">${fileName}</span>
-        <span class="linked-doc-path" style="display: none;">${path}</span>
+        <span class="linked-doc-name">${escapeHtml(fileName)}</span>
+        <span class="linked-doc-path" style="display: none;">${escapeHtml(path)}</span>
         <button type="button" class="btn-remove-doc" onclick="removeLinkedDoc(this)">×</button>
     `;
     listContainer.appendChild(item);
@@ -625,9 +639,9 @@ async function loadUsers() {
     const tbody = document.querySelector('#usersTable tbody');
     tbody.innerHTML = users.map(u => `
         <tr>
-            <td>${u.username}</td>
-            <td><span class="role-badge ${u.role === 'admin' ? 'admin' : ''}">${u.role}</span></td>
-            <td><button class="btn btn-danger btn-sm" onclick="deleteUser(${u.id})">Delete</button></td>
+            <td>${escapeHtml(u.username)}</td>
+            <td><span class="role-badge ${u.role === 'admin' ? 'admin' : ''}">${escapeHtml(u.role)}</span></td>
+            <td><button class="btn btn-danger btn-sm" onclick="deleteUser(${escapeHtml(u.id)})">Delete</button></td>
         </tr>
     `).join('');
 }
@@ -680,7 +694,7 @@ async function loadColumnOptions() {
     const columns = ['asset_class', 'datatype', 'delivery_frequency', 'delivery_lag', 
                      'delivery_method', 'region', 'stage', 'status'];
     columnList.innerHTML = columns.map(col => `
-        <li class="column-item" data-column="${col}">${col.replace(/_/g, ' ')}</li>
+        <li class="column-item" data-column="${escapeHtml(col)}">${escapeHtml(col.replace(/_/g, ' '))}</li>
     `).join('');
     
     columnList.querySelectorAll('.column-item').forEach(item => {
@@ -690,7 +704,7 @@ async function loadColumnOptions() {
 
 function selectColumn(colName) {
     selectedColumn = colName;
-    document.getElementById('selectedColumnName').textContent = colName.replace(/_/g, ' ');
+    document.getElementById('selectedColumnName').textContent = escapeHtml(colName.replace(/_/g, ' '));
     
     // Update active state
     document.querySelectorAll('.column-item').forEach(item => {
@@ -702,7 +716,9 @@ function selectColumn(colName) {
     const tbody = document.querySelector('#optionsTable tbody');
     tbody.innerHTML = options.map(val => {
         // Find option ID (we'll need to fetch full list)
-        return `<tr><td>${val}</td><td><button class="btn btn-danger btn-sm" onclick="deleteOptionValue('${colName}', '${val}')">Delete</button></td></tr>`;
+        const safeColName = escapeHtml(colName);
+        const safeVal = escapeHtml(val);
+        return `<tr><td>${safeVal}</td><td><button class="btn btn-danger btn-sm" onclick="deleteOptionValue('${safeColName}', '${safeVal}')">Delete</button></td></tr>`;
     }).join('');
 }
 
