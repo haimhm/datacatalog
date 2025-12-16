@@ -1,7 +1,15 @@
 import os
 
 class Config:
-    SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
+    # SECRET_KEY is required in production - fail if not set
+    SECRET_KEY = os.environ.get('SECRET_KEY')
+    if not SECRET_KEY:
+        if os.environ.get('FLASK_ENV') == 'production' or os.environ.get('ENVIRONMENT') == 'production':
+            raise ValueError('SECRET_KEY environment variable must be set in production')
+        # Only allow default in development
+        SECRET_KEY = 'dev-secret-key-change-in-production'
+        import warnings
+        warnings.warn('Using default SECRET_KEY. Set SECRET_KEY environment variable in production!')
     
     # Database configuration - easily switchable between SQLite/PostgreSQL/MySQL
     # SQLite (default): sqlite:///data_catalog.db
