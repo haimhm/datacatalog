@@ -4,6 +4,7 @@ from models import db, User, DataProduct, ColumnOption
 from config import Config, SENSITIVE_COLUMNS
 from datetime import datetime
 import os
+import re
 from werkzeug.utils import secure_filename
 
 DATE_FIELDS = ['prod_date', 'trial_date', 'created_date', 'end_date', 'pit_date', 
@@ -16,8 +17,47 @@ def parse_value(key, value):
     if key in DATE_FIELDS:
         try:
             return datetime.strptime(value, '%Y-%m-%d').date()
-        except:
+        except (ValueError, TypeError) as e:
             return None
+    return value
+
+# Input validation functions
+def validate_username(username):
+    """Validate username: alphanumeric, underscore, 3-80 characters"""
+    if not username or not isinstance(username, str):
+        return False, 'Username is required'
+    if len(username) < 3 or len(username) > 80:
+        return False, 'Username must be between 3 and 80 characters'
+    if not re.match(r'^[a-zA-Z0-9_]+$', username):
+        return False, 'Username can only contain letters, numbers, and underscores'
+    return True, None
+
+def validate_password(password):
+    """Validate password: minimum 8 characters"""
+    if not password or not isinstance(password, str):
+        return False, 'Password is required'
+    if len(password) < 8:
+        return False, 'Password must be at least 8 characters long'
+    if len(password) > 256:
+        return False, 'Password is too long (max 256 characters)'
+    return True, None
+
+def validate_role(role):
+    """Validate user role"""
+    valid_roles = ['admin', 'standard', 'guest']
+    if role not in valid_roles:
+        return False, f'Role must be one of: {", ".join(valid_roles)}'
+    return True, None
+
+def sanitize_string(value, max_length=None):
+    """Sanitize string input by stripping whitespace and limiting length"""
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        value = str(value)
+    value = value.strip()
+    if max_length and len(value) > max_length:
+        value = value[:max_length]
     return value
 
 app = Flask(__name__)
@@ -54,8 +94,22 @@ def index():
 @app.route('/api/login', methods=['POST'])
 def login():
     data = request.get_json()
-    user = User.query.filter_by(username=data.get('username')).first()
-    if user and user.check_password(data.get('password')):
+    if not data:
+        return jsonify({'success': False, 'error': 'Invalid request'}), 400
+    
+    username = data.get('username', '').strip()
+    password = data.get('password', '')
+    
+    if not username or not password:
+        return jsonify({'success': False, 'error': 'Username and password are required'}), 400
+    
+    # Validate username format
+    is_valid, error_msg = validate_username(username)
+    if not is_valid:
+        return jsonify({'success': False, 'error': error_msg}), 400
+    
+    user = User.query.filter_by(username=username).first()
+    if user and user.check_password(password):
         login_user(user)
         return jsonify({'success': True, 'role': user.role, 'username': user.username})
     return jsonify({'success': False, 'error': 'Invalid credentials'}), 401
@@ -89,13 +143,27 @@ def create_product():
     if current_user.role != 'admin':
         return jsonify({'error': 'Admin access required'}), 403
     data = request.get_json()
+    if not data:
+        return jsonify({'error': 'Invalid request'}), 400
+    
     product = DataProduct()
     for key, value in data.items():
-        if hasattr(product, key):
+        if hasattr(product, key) and key != 'id':
+            # Sanitize string values
+            if isinstance(value, str):
+                # Get max length from model if available
+                column = getattr(product.__table__.columns, key, None)
+                max_length = column.type.length if column and hasattr(column.type, 'length') else None
+                value = sanitize_string(value, max_length)
             setattr(product, key, parse_value(key, value))
-    db.session.add(product)
-    db.session.commit()
-    return jsonify(product.to_dict(include_sensitive=True)), 201
+    
+    try:
+        db.session.add(product)
+        db.session.commit()
+        return jsonify(product.to_dict(include_sensitive=True)), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': 'Failed to create product'}), 500
 
 @app.route('/api/products/<int:id>', methods=['PUT'])
 @login_required
@@ -104,21 +172,39 @@ def update_product(id):
         return jsonify({'error': 'Admin access required'}), 403
     product = DataProduct.query.get_or_404(id)
     data = request.get_json()
+    if not data:
+        return jsonify({'error': 'Invalid request'}), 400
+    
     for key, value in data.items():
         if hasattr(product, key) and key != 'id':
+            # Sanitize string values
+            if isinstance(value, str):
+                # Get max length from model if available
+                column = getattr(product.__table__.columns, key, None)
+                max_length = column.type.length if column and hasattr(column.type, 'length') else None
+                value = sanitize_string(value, max_length)
             setattr(product, key, parse_value(key, value))
-    db.session.commit()
-    return jsonify(product.to_dict(include_sensitive=True))
+    
+    try:
+        db.session.commit()
+        return jsonify(product.to_dict(include_sensitive=True))
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': 'Failed to update product'}), 500
 
 @app.route('/api/products/<int:id>', methods=['DELETE'])
 @login_required
 def delete_product(id):
     if current_user.role != 'admin':
         return jsonify({'error': 'Admin access required'}), 403
-    product = DataProduct.query.get_or_404(id)
-    db.session.delete(product)
-    db.session.commit()
-    return jsonify({'success': True})
+    try:
+        product = DataProduct.query.get_or_404(id)
+        db.session.delete(product)
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': 'Failed to delete product'}), 500
 
 @app.route('/api/users')
 @login_required
@@ -133,11 +219,33 @@ def get_users():
 def create_user():
     if current_user.role != 'admin':
         return jsonify({'error': 'Admin access required'}), 403
+    
     data = request.get_json()
-    if User.query.filter_by(username=data.get('username')).first():
+    if not data:
+        return jsonify({'error': 'Invalid request'}), 400
+    
+    username = data.get('username', '').strip()
+    password = data.get('password', '')
+    role = data.get('role', 'standard')
+    
+    # Validate inputs
+    is_valid, error_msg = validate_username(username)
+    if not is_valid:
+        return jsonify({'error': error_msg}), 400
+    
+    is_valid, error_msg = validate_password(password)
+    if not is_valid:
+        return jsonify({'error': error_msg}), 400
+    
+    is_valid, error_msg = validate_role(role)
+    if not is_valid:
+        return jsonify({'error': error_msg}), 400
+    
+    if User.query.filter_by(username=username).first():
         return jsonify({'error': 'Username already exists'}), 400
-    user = User(username=data['username'], role=data.get('role', 'standard'))
-    user.set_password(data['password'])
+    
+    user = User(username=username, role=role)
+    user.set_password(password)
     db.session.add(user)
     db.session.commit()
     return jsonify({'id': user.id, 'username': user.username, 'role': user.role}), 201
@@ -149,10 +257,14 @@ def delete_user(id):
         return jsonify({'error': 'Admin access required'}), 403
     if id == current_user.id:
         return jsonify({'error': 'Cannot delete yourself'}), 400
-    user = User.query.get_or_404(id)
-    db.session.delete(user)
-    db.session.commit()
-    return jsonify({'success': True})
+    try:
+        user = User.query.get_or_404(id)
+        db.session.delete(user)
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': 'Failed to delete user'}), 500
 
 @app.route('/api/column-options')
 def get_column_options():
@@ -183,14 +295,28 @@ def create_column_option():
     if current_user.role != 'admin':
         return jsonify({'error': 'Admin access required'}), 403
     data = request.get_json()
-    option = ColumnOption(
-        column_name=data['column_name'],
-        value=data['value'],
-        is_multi_value=data.get('is_multi_value', False)
-    )
-    db.session.add(option)
-    db.session.commit()
-    return jsonify(option.to_dict()), 201
+    if not data:
+        return jsonify({'error': 'Invalid request'}), 400
+    
+    column_name = sanitize_string(data.get('column_name'), max_length=100)
+    value = sanitize_string(data.get('value'), max_length=500)
+    is_multi_value = bool(data.get('is_multi_value', False))
+    
+    if not column_name or not value:
+        return jsonify({'error': 'Column name and value are required'}), 400
+    
+    try:
+        option = ColumnOption(
+            column_name=column_name,
+            value=value,
+            is_multi_value=is_multi_value
+        )
+        db.session.add(option)
+        db.session.commit()
+        return jsonify(option.to_dict()), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': 'Failed to create column option'}), 500
 
 @app.route('/api/column-options/<int:id>', methods=['DELETE'])
 @login_required
@@ -208,14 +334,27 @@ def delete_column_option_by_value():
     if current_user.role != 'admin':
         return jsonify({'error': 'Admin access required'}), 403
     data = request.get_json()
-    option = ColumnOption.query.filter_by(
-        column_name=data['column_name'],
-        value=data['value']
-    ).first()
-    if option:
-        db.session.delete(option)
-        db.session.commit()
-    return jsonify({'success': True})
+    if not data:
+        return jsonify({'error': 'Invalid request'}), 400
+    
+    column_name = sanitize_string(data.get('column_name'), max_length=100)
+    value = sanitize_string(data.get('value'), max_length=500)
+    
+    if not column_name or not value:
+        return jsonify({'error': 'Column name and value are required'}), 400
+    
+    try:
+        option = ColumnOption.query.filter_by(
+            column_name=column_name,
+            value=value
+        ).first()
+        if option:
+            db.session.delete(option)
+            db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': 'Failed to delete column option'}), 500
 
 @app.route('/dataset/<int:id>')
 def dataset_detail(id):
