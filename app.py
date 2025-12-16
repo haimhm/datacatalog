@@ -523,5 +523,10 @@ def get_filters():
     return jsonify(filters)
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    # Only enable debug mode if explicitly set via environment variable
+    # Never enable debug in production
+    debug_mode = os.environ.get('FLASK_DEBUG', '').lower() == 'true'
+    if os.environ.get('FLASK_ENV') == 'production' or os.environ.get('ENVIRONMENT') == 'production':
+        debug_mode = False
+    app.run(host='0.0.0.0', port=5000, debug=debug_mode)
 
